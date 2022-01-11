@@ -1,36 +1,36 @@
 import numpy as np
 
 #create 52-card deck 
-cards = {
-  "ace": 11,
-  "two": 2,
-  "three": 3,
-  "four": 4,
-  "five": 5,
-  "six": 6,
-  "seven": 7,
-  "eight": 8,
-  "nine": 9,
-  "ten": 10,
-  "jack": 10,
-  "queen": 10,
-  "king": 10
-}
 
-#empty deck 
-deck = []
+def deck(): 
+    cards = {
+        "ace": 11,
+        "two": 2,
+        "three": 3,
+        "four": 4,
+        "five": 5,
+        "six": 6,
+        "seven": 7,
+        "eight": 8,
+        "nine": 9,
+        "ten": 10,
+        "jack": 10,
+        "queen": 10,
+        "king": 10
+    }
 
-for suit in range(4):
-    for card in cards: 
-        deck.append(card)
+    #empty deck 
+    deck = []
 
-deck = np.array(deck)
+    for suit in range(4):
+        for card in cards: 
+            deck.append(card)
 
+    deck = np.array(deck)
 
+    np.random.shuffle(deck)
 
-#shuffle deck
-np.random.shuffle(deck)
-print(deck)
+    return deck
 
 def addCard(hand, card):
     cardValue = cards[card]
@@ -45,7 +45,6 @@ def computeScore(points):
 
     return 0
 
-# 
 nextCardIndex = 0
 scores = []
 
@@ -68,7 +67,6 @@ while nextCardIndex !=  deck.size:
         nextCardIndex += 1
 
     points = sumPoints(hand)
-
  
     while points < 21:
         print(f'Points: {points}')
@@ -84,8 +82,36 @@ while nextCardIndex !=  deck.size:
 
         points = sumPoints(hand)
 
+    if (points > 21) and (cardValue==11):
+        cardValue = 1
+        
     print(hand)
 
     scores.append(computeScore(points))
 
     print(f'Scores:{scores}')
+
+
+class Environment:
+    def __init__(self):
+        self.actions = [0, 1] # Stick, Hit
+
+
+class Agent:
+    def __init__(self) -> None:
+        pass
+
+agent = Agent()
+
+env = Environment()
+
+Game(1, agent, env).play()
+
+print(env.returns)
+
+
+
+
+
+
+
