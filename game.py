@@ -1,3 +1,4 @@
+from collections import defaultdict
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -21,16 +22,18 @@ class Game:
     STICK = 0
     HIT = 1
 
-    def __init__(self, samples):
-        self.samples = samples
-        self.episodes = []
-        self.valueFunctions = []
-        self.returns = []
+    def __init__(self, episodes):
+        self.episodes = episodes
+        self.previousStates = []
+        self.episodeStates = {i:[] for i in range(episodes)}
+        self.returns = defaultdict(list)
+        self.valueFunctions = defaultdict(int)
 
-    def policy(self):
+
+    def applyPolicy(self):
         if self.sumPoints() == 20 or self.sumPoints() >= 21:
             return self.STICK 
-        return self.HIT;
+        return self.HIT
 
     def getCard(self):
         cards = np.array([2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11])
@@ -50,54 +53,56 @@ class Game:
             return 1
         return 0
 
-    def saveEpisode(self, score, action, reward):
-        self.episodes.append((score, action, reward))
+    def saveEpisodeState(self, episode, score, action, reward):
+        self.episodeStates[episode].append((score, action, reward)); 
 
+    # Generate episodes
     def play(self):
-        for i in range(self.samples):
+        for episode in range(self.episodes):
             self.agent = Agent()
 
-            # Deal cards for i in range(2):
+            # Deal cards 
+            #for i in range(2):
             self.agent.addCard(self.getCard())
 
             while True:
-                action = self.policy()
+                action = self.applyPolicy()
 
+                reward = self.getReward()
+
+                self.saveEpisodeState(episode, self.sumPoints(), action, reward)
+                
                 if action == self.STICK:
-                    reward = self.getReward()
-
-                    self.saveEpisode(self.sumPoints(), action, reward)
                     break
                 else:
                     self.agent.addCard(self.getCard())
-            G=0
+            
+            self.monteCarlo(self.episodeStates[episode])
 
-            previousStates = [] 
-            stateValues = []
-            for i in range(len(self.episodes) - 1, 0, -1):
-                gamma = 1
+    # Monte carlo First Visit Prediction
+    def monteCarlo(self, states):     
+        G = 0
+        gamma = 1
 
-                state = self.episodes[i][0] 
+        for state in states:
+            score = state[0] # score
 
-                G = gamma * G + self.episodes[i][2] # reward
-
-                if state not in previousStates:
-                    self.returns.append(G)
-                    stateValues.append(np.mean(self.returns))
-                    self.valueFunctions.append(stateValues)
-                    previousStates.append(state)
+            G = gamma * G + state[2] # reward
+            
+            self.returns[score].append(G)
+            self.valueFunctions[score] = np.mean(self.returns[score])
 
 
 game = Game(10)
 game.play()
+print(game.valueFunctions)
+# x = [i[0] for i in game.episodes]
+# print(x)
+# print(len(x))
 
-x = [i[0] for i in game.episodes]
-print(x)
-print(len(x))
-
-y = game.valueFunctions
-print(y)
-print(len(y))
+# y = game.valueFunctions
+# print(y)
+# print(len(y))
 
 # plt.plot(x, y)
 # plt.show()
