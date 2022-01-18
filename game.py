@@ -1,5 +1,6 @@
 from collections import defaultdict
 import sys
+from time import time
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -34,11 +35,11 @@ class Game:
                 self.Q[i][k] = 0
                 self.policies[i][k] = 0.5
 
-    def chooseAction(self, policy):
-        if self.sumPoints() < 11:
-            return self.STICK
-
-        return np.random.choice(2, p = list(policy))
+    def chooseAction(self, score):
+        if score < 11:
+            return self.HIT
+        
+        return np.random.choice(2, p = list(self.policies[score].values()))
 
     def getCard(self):
         deck = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10])
@@ -48,7 +49,7 @@ class Game:
         result = sum(self.agent.cards)
 
         # Ace value.
-        if result < 21 and 1 in self.agent.cards:
+        if result < 20 and 1 in self.agent.cards:
             result += 10
 
         return result
@@ -56,7 +57,7 @@ class Game:
     def getReward(self):
         if self.sumPoints() <= 21:
             return 1
-        return 0
+        return -1
 
     def playEpisode(self):
         self.agent = Agent()
@@ -64,45 +65,47 @@ class Game:
         # Deal cards 
         #for i in range(2):
 
-        episode = []
+        states = []
         while True:
             self.agent.addCard(self.getCard())
             score = self.sumPoints()
-
+            reward = self.getReward()
+            
             if score > 21:
                 break
 
-            action = self.chooseAction(self.policies[score])
+            action = self.chooseAction(score)
 
-            reward = self.getReward()
-
-            episode.append((score, action, reward))
+            states.append((score, action, reward))
             
+
             if action == self.STICK:
                 break
 
-        return episode
+        return states
 
     def monteCarloControl(self, episodes, gamma = 1, epsilon = 1.0):
         for i in range(episodes):
-            print(f'Playing episode {i}')
-            episode = self.playEpisode()
+            print(f'{i}')
+            states = self.playEpisode()
+            # print(f'States: {episode}')
+            # print('........')
 
-            epsilon = max(epsilon * 0.99995, 0.01)
+            epsilon = max(epsilon * 0.99995, 0.0001)
 
             G = 0
-            for k, (state, action, reward) in enumerate(episode):
+            for k, (state, action, reward) in enumerate(states):
                 G = gamma * G + reward
 
-                if not (state, action) in episode[0:k]:
+                if not (state, action) in states[0:k]:
                     self.returns[(state, action)].append(G)
 
                     self.Q[state][action] = np.mean(self.returns[(state, action)])
 
-                    bestActionIndex = max(self.Q[state], key=self.Q[state].get)
-                        
+                    bestAction = max(self.Q[state], key=self.Q[state].get) # Same as argmax but with dictionaries.
+                    
                     for action in range(0, 2):
-                        if action == self.Q[state][bestActionIndex]:
+                        if action == bestAction:
                             self.policies[state][action] = 1 - epsilon + (epsilon / 2) # |A(st)| = 2
                         else:
                             self.policies[state][action] = epsilon / 2
@@ -120,9 +123,18 @@ class Game:
             self.returns[score].append(G)
             self.valueFunctions[score] = np.mean(self.returns[score])
 
+
+startTime = time()
+
 game = Game()
-game.monteCarloControl(50000)
-print(game.policies)
+game.monteCarloControl(35000)
+
+for policy in game.policies:
+    print(f'State {policy}')
+    print(game.policies[policy])
+
+print(f'Done in: {time() - startTime}')
+
 # x = [i[0] for i in game.episodes]
 # print(x)
 # print(len(x))
