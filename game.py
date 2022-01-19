@@ -25,6 +25,7 @@ class Game:
     HIT = 1
 
     def __init__(self):
+        self.agent = Agent()
         self.returns = defaultdict(list)
         self.valueFunctions = defaultdict(int)
         self.Q = defaultdict(dict)
@@ -36,6 +37,9 @@ class Game:
                 self.policies[i][k] = 0.5
 
     def chooseAction(self, score):
+        if score > 21:
+            return self.STICK
+            
         if score < 11:
             return self.HIT
         
@@ -49,14 +53,16 @@ class Game:
         result = sum(self.agent.cards)
 
         # Ace value.
-        if result < 20 and 1 in self.agent.cards:
+        if result + 10 <= 21 and 1 in self.agent.cards:
             result += 10
 
         return result
 
-    def getReward(self):
-        if self.sumPoints() <= 21:
-            return 1
+    def getReward(self, score):
+        if score < 17:
+            return 0
+        if score <= 21:
+            return 2
         return -1
 
     def playEpisode(self):
@@ -65,19 +71,24 @@ class Game:
         # Deal cards 
         #for i in range(2):
 
+        self.agent.addCard(self.getCard())
+
         states = []
         while True:
-            self.agent.addCard(self.getCard())
-            score = self.sumPoints()
-            reward = self.getReward()
-            
-            if score > 21:
+            state = self.sumPoints()
+
+            if state > 21:
                 break
 
-            action = self.chooseAction(score)
+            action = self.chooseAction(state)
 
-            states.append((score, action, reward))
-            
+            if action == self.HIT:
+                self.agent.addCard(self.getCard())
+
+            nextState = self.sumPoints()
+            reward = self.getReward(nextState)
+
+            states.append((state, action, reward))
 
             if action == self.STICK:
                 break
@@ -88,8 +99,6 @@ class Game:
         for i in range(episodes):
             print(f'{i}')
             states = self.playEpisode()
-            # print(f'States: {episode}')
-            # print('........')
 
             epsilon = max(epsilon * 0.99995, 0.0001)
 
@@ -110,30 +119,17 @@ class Game:
                         else:
                             self.policies[state][action] = epsilon / 2
 
-    # Monte carlo First Visit Prediction
-    def firstVisitMonteCarlo(self, states):     
-        G = 0
-        gamma = 1
-
-        for state in states:
-            score = state[0] # score
-
-            G = gamma * G + state[2] # reward
-
-            self.returns[score].append(G)
-            self.valueFunctions[score] = np.mean(self.returns[score])
-
 
 startTime = time()
 
 game = Game()
-game.monteCarloControl(35000)
+game.monteCarloControl(10000,gamma=1, epsilon=.5)
+print(f'Done in: {time() - startTime}')
 
 for policy in game.policies:
     print(f'State {policy}')
     print(game.policies[policy])
 
-print(f'Done in: {time() - startTime}')
 
 # x = [i[0] for i in game.episodes]
 # print(x)
