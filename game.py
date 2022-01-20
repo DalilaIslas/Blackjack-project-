@@ -5,13 +5,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+# Agent class can be seen as the blackjack player.
 class Agent:
     def __init__(self):
         self.cards = [] # States
 
     def addCard(self, card):
         self.cards.append(card)
-
 
 class Game:
     STICK = 0
@@ -29,13 +29,16 @@ class Game:
                 self.Q[i][k] = 0
                 self.policies[i][k] = 0.5
 
+    # Choose an action using optimal policy.
     def chooseAction(self, score):
         if score > 21:
             return self.STICK
-            
+
+        # Agent should always hit scores 2-11.   
         if score < 11:
             return self.HIT
         
+        # Otherwise, we'll use the optimal policy.
         return np.random.choice(2, p = list(self.policies[score].values()))
 
     def finiteDeck(): 
@@ -45,11 +48,13 @@ class Game:
         np.random.shuffle(deck)
 
         return deck.tolist()
-
+    
+    # Creates a shuffled deck and returns a random card.
     def getCard(self):
         deck = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10])
         return np.random.choice(deck)
 
+    # Compute the current points of the agent.
     def sumPoints(self):
         result = sum(self.agent.cards)
 
@@ -61,14 +66,14 @@ class Game:
 
     def getReward(self, score):  
 
-        #rewards for MC
+        # Rewards for MC optimal results.
         #if score < 17:
         #    return 0
         #if score <= 21:
         #    return 2
         #return -1
 
-        #rewards for Q learning
+        # Rewards for Q learning optional results.
          if score < 17:
              return 1
          if score < 21:
@@ -81,15 +86,13 @@ class Game:
     def playEpisode(self):
         self.agent = Agent()
 
-        # Deal cards 
-        #for i in range(2):
-
+        # Deal the first card
         self.agent.addCard(self.getCard())
 
         states = []
         while True:
             state = self.sumPoints()
-
+            
             if state > 21:
                 break
 
@@ -97,10 +100,11 @@ class Game:
 
             if action == self.HIT:
                 self.agent.addCard(self.getCard())
-
+            
             nextState = self.sumPoints()
             reward = self.getReward(nextState)
 
+            # Store state.
             states.append((state, action, reward))
 
             if action == self.STICK:
@@ -108,12 +112,14 @@ class Game:
 
         return states
 
+    # On Policy Monte Carlo First Visit Control
     def monteCarloControl(self, episodes, gamma = 1, epsilon = 1.0):
         scores = []
         for i in range(episodes):
             print(f'{i}')
             states = self.playEpisode()
 
+            # Epsilon decays
             epsilon = max(epsilon * 0.99995, 0.0001)
 
             score = 0
@@ -128,39 +134,47 @@ class Game:
 
                     self.Q[state][action] = np.mean(self.returns[(state, action)])
 
-                    bestAction = max(self.Q[state], key=self.Q[state].get) # Same as argmax but with dictionaries.
+                    # Same as argmax but with dictionaries.
+                    bestAction = max(self.Q[state], key=self.Q[state].get) 
                     
                     for action in range(0, 2):
                         if action == bestAction:
                             self.policies[state][action] = 1 - epsilon + (epsilon / 2) # |A(st)| = 2
                         else:
                             self.policies[state][action] = epsilon / 2
-                
+
+            # We'll store quadratic scores per episode.
             scores.append(score ** 2)
 
         return scores
-    
+
+    # Choose an action using Exploration vs Exploitation Trade-off 
     def chooseActionEGreedy(self, state, epsilon = 1):
+        # We'll use the Q values based on epsilon.
         if np.random.uniform(0, 1) > epsilon:
             return max(self.Q[state], key=self.Q[state].get)
+
+        # Otherwise, we'll make a random choice.
         return np.random.choice(2, p=[0.5, 0.5])
 
+    # Q-Learning Off-Policy TD Control
     def QLearningControl(self, episodes, gamma = 0.9, alpha = 0.5, epsilon=1):
-
         rewards = []
         scores = []
 
         for i in range(episodes):
             self.agent = Agent()
-            self.agent.addCard(self.getCard())
             episodeRewards = 0
 
             epsilon = max(epsilon * 0.99995, 0.00001)
 
+            # Add the first card.
+            self.agent.addCard(self.getCard())
             while True:
                 state = self.sumPoints()
 
                 if state > 21:
+                    # Store score.
                     scores.append(state ** 2)
                     break
                 
@@ -175,13 +189,15 @@ class Game:
                 nextState = self.sumPoints()
                 reward = self.getReward(nextState)
 
-                episodeRewards += reward
-
                 maxNextState = max(self.Q[nextState].values())
 
                 self.Q[state][action] += alpha * (reward + (gamma * maxNextState) - self.Q[state][action]) 
 
+                # Acumulate reward of episode for results.
+                episodeRewards += reward
+
                 if action == self.STICK:
+                    # Store quadratic score for results.
                     scores.append(state ** 2)
                     break
                 
@@ -189,7 +205,7 @@ class Game:
         
         return scores, rewards
 
-#plots
+# plots
 
 #n = 100000
 #game = Game()
@@ -219,7 +235,9 @@ class Game:
 #plt.show()
 #sys.exit()
 
+# Number of episodes.
 n = 1000000
+
 game = Game()
 scores, rewards = game.QLearningControl(n)
 
@@ -227,19 +245,25 @@ rewards = np.split(np.array(rewards), n / 1000)
 scores = np.split(np.array(scores), n / 1000)
 
 count = 1000
-print('**********Scores*************')
+
+# For plotting.
 xs =[]
 ys =[]
-for r in scores:
-     print(count, ':', str(sum(r/1000)))
-     count += 1000
-     xs.append(count)
-     ys.append(sum(r/1000))
 
-print('*********Q*********')
+print('********** Scores per 1000 episodes *************')
+for score in scores:
+     print(count, ':', str(sum(score / 1000)))
+     count += 1000
+
+     xs.append(count)
+     ys.append(sum(score / 1000))
+
+print('********* Q *********')
 for i in game.Q:
      print(f'Episode {i}', ':', game.Q[i])
 
+# Plot Results
+# Smooth the curve
 poly = np.polyfit(xs,ys,5)
 poly_y = np.poly1d(poly)(xs)
 
